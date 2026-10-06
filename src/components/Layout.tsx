@@ -3,9 +3,52 @@ import { authRepository } from "../repositories/authRepository";
 import type { ReactNode } from "react";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const user = authRepository.getCurrentUser(); const navigate = useNavigate();
+  const user = authRepository.getCurrentUser();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+  authRepository.logout();
+  navigate("/", { replace: true });
+};
   const links = user?.role === "ADMIN" ? [["/admin", "Panel"], ["/admin/users", "Usuarios"], ["/admin/rooms", "Habitaciones"], ["/admin/reservations", "Reservas"], ["/admin/services", "Servicios"]] : user ? [["/", "Inicio"], ["/rooms", "Habitaciones"], ["/reservation", "Reservar"], ["/my-reservations", "Mis reservas"]] : [["/", "Inicio"], ["/rooms", "Habitaciones"], ["/services", "Servicios"]];
-  return <><header className="nav"><Link className="brand" to="/"><span>✦</span> Casa Aurora<small>HOSPEDAJE</small></Link><nav>{links.map(([to, label]) => <NavLink key={to} to={to}>{label}</NavLink>)}</nav><div className="nav-actions">{user ? <><Link className="user-chip" to={user.role === "ADMIN" ? "/admin" : "/profile"}>Hola, {user.name.split(" ")[0]}</Link><button className="text-btn" onClick={() => { authRepository.logout(); navigate("/"); }}>Salir</button></> : <><Link className="text-btn" to="/login">Iniciar sesión</Link><Link className="button small" to="/register">Registrarse</Link></>}</div></header>{children}<footer><div><b>✦ Casa Aurora</b><p>Hospitalidad serena, atención memorable.</p></div><div><b>Contacto</b><p>Av. Las Palmeras 145 · Sucre</p><p>+591 700 123 45 · hola@casaaurora.bo</p></div><div><b>Descubre</b><p>Habitaciones · Servicios</p><p>© 2026 Casa Aurora</p></div></footer></>;
-  const links = user?.role === "ADMIN" ? [["/admin", "Panel"], ["/admin/users", "Usuarios"], ["/admin/rooms", "Habitaciones"], ["/admin/reservations", "Reservas"], ["/admin/services", "Servicios"], ["/admin/payments", "Pagos"], ["/admin/reviews", "Reseñas"]] : user ? [["/", "Inicio"], ["/rooms", "Habitaciones"], ["/reservation", "Reservar"], ["/my-reservations", "Mis reservas"], ["/reviews", "Reseñas"]] : [["/", "Inicio"], ["/rooms", "Habitaciones"], ["/services", "Servicios"], ["/reviews", "Reseñas"]];
-  return <><header className="nav"><Link className="brand" to="/"><span>✦</span> Casa Aurora<small>HOSPEDAJE</small></Link><nav>{links.map(([to, label]) => <NavLink key={to} to={to}>{label}</NavLink>)}</nav><div className="nav-actions">{user ? <><Link className="user-chip" to={user.role === "ADMIN" ? "/admin" : "/profile"}>Hola, {user.name.split(" ")[0]}</Link><button className="text-btn" onClick={() => { authRepository.logout(); navigate("/"); }}>Salir</button></> : <><Link className="text-btn" to="/login">Iniciar sesión</Link><Link className="button small" to="/register">Registrarse</Link></>}</div></header>{children}<footer><div><b>✦ Casa Aurora</b><p>Hospitalidad serena, atención memorable.</p></div><div><b>Contacto</b><p>Av. Las Palmeras 145 · Sucre</p><p>+591 700 123 45 · hola@casaaurora.bo</p></div><div><b>Descubre</b><p>Habitaciones · Servicios · Reseñas</p><p>© 2026 Casa Aurora</p></div></footer></>;
+  return (
+  <>
+<header className="nav">
+  <Link className="brand" to="/">
+    <span>Casa Aurora</span>
+    <small>HOSPEDAJE</small>
+  </Link>
+
+  <nav>
+    {links.map(([to, label]) => (
+      <NavLink key={to} to={to}>
+        {label}
+      </NavLink>
+    ))}
+  </nav>
+
+  <div className="nav-actions">
+    {user ? (
+      <>
+        <span className="user-chip">
+          {user.role === "ADMIN" ? "Administrador" : user.name}
+        </span>
+
+        <button className="text-btn" onClick={handleLogout}>
+          Cerrar sesión
+        </button>
+      </>
+    ) : (
+      <Link className="button small" to="/login">
+        Iniciar sesión
+      </Link>
+    )}
+  </div>
+</header>
+
+    {children}
+  </>
+);
+
+
 }

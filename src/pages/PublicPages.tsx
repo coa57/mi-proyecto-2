@@ -1,17 +1,430 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { RoomCard, Stars } from "../components/Cards";
+import { RoomCard } from "../components/Cards";
 import { authRepository } from "../repositories/authRepository";
 import { hospitalityRepository } from "../repositories/hospitalityRepository";
-import type { LoginCredentials, RegisterCredentials } from "../types/auth";
 
-const SectionTitle = ({ eyebrow, title, copy }: { eyebrow: string; title: string; copy?: string }) => <div className="section-title"><span>{eyebrow}</span><h2>{title}</h2>{copy && <p>{copy}</p>}</div>;
-export function HomePage() { const [guests, setGuests] = useState(2); const navigate = useNavigate(); const rooms = hospitalityRepository.rooms().filter(r => r.status === "Disponible"); return <><section className="hero"><div className="hero-content"><p className="eyebrow">HOSPEDAJE BOUTIQUE · SUCRE</p><h1>Descansa donde<br /><i>todo se siente bien.</i></h1><p>Una estancia hecha de calma, detalles cálidos y experiencias que querrás repetir.</p><div className="hero-actions"><Link className="button" to="/rooms">Reservar ahora</Link><Link className="button ghost" to="/rooms">Ver habitaciones</Link></div></div></section><section className="availability"><div><label>Ingreso<input type="date" /></label><label>Salida<input type="date" /></label><label>Huéspedes<select value={guests} onChange={e => setGuests(+e.target.value)}>{[1,2,3,4].map(n => <option key={n}>{n} persona{n > 1 ? "s" : ""}</option>)}</select></label></div><button className="button" onClick={() => navigate(`/rooms?capacity=${guests}`)}>Buscar disponibilidad <span>→</span></button></section><section className="page-section"><SectionTitle eyebrow="ELIGE TU ESTANCIA" title="Habitaciones que invitan a quedarte" copy="Espacios pensados para que cada viaje se sienta como una pausa." /><div className="room-grid">{rooms.slice(0,3).map(room => <RoomCard room={room} key={room.id} />)}</div><div className="center"><Link className="text-link large" to="/rooms">Conocer todas las habitaciones →</Link></div></section><section className="services-band"><div><span className="eyebrow">CUIDAMOS CADA DETALLE</span><h2>Más que una habitación,<br />una experiencia completa.</h2><Link className="button ghost" to="/services">Explorar servicios</Link></div><div className="service-mini-grid">{hospitalityRepository.services().slice(0,4).map(s => <div key={s.id}><b>{s.icon}</b><h3>{s.name}</h3><p>{s.description}</p></div>)}</div></section><section className="page-section"><SectionTitle eyebrow="HUÉSPEDES FELICES" title="Historias que nos inspiran" /><div className="review-grid">{hospitalityRepository.reviews().filter(r => r.visible).map(r => <article className="review-card" key={r.id}><Stars value={r.rating}/><p>“{r.comment}”</p><b>{r.name}</b><small>{r.date}</small></article>)}</div></section></> }
-export function RoomsPage() { const [filters, setFilters] = useState({ type: "", capacity: "", garage: false, available: false }); const rooms = useMemo(() => hospitalityRepository.rooms().filter(r => (!filters.type || r.type === filters.type) && (!filters.capacity || r.capacity >= +filters.capacity) && (!filters.garage || r.garage) && (!filters.available || r.status === "Disponible")), [filters]); return <main className="page-section"><SectionTitle eyebrow="NUESTRAS ESTANCIAS" title="Encuentra tu espacio ideal" copy="Todas nuestras habitaciones combinan descanso, funcionalidad y diseño."/><div className="filters"><select onChange={e=>setFilters({...filters,type:e.target.value})}><option value="">Todos los tipos</option>{[...new Set(hospitalityRepository.rooms().map(r=>r.type))].map(t=><option key={t}>{t}</option>)}</select><select onChange={e=>setFilters({...filters,capacity:e.target.value})}><option value="">Cualquier capacidad</option><option value="1">1+ huésped</option><option value="2">2+ huéspedes</option><option value="4">4 huéspedes</option></select><label><input type="checkbox" onChange={e=>setFilters({...filters,garage:e.target.checked})}/> Con garaje</label><label><input type="checkbox" onChange={e=>setFilters({...filters,available:e.target.checked})}/> Solo disponibles</label></div><div className="room-grid">{rooms.map(r=><RoomCard key={r.id} room={r}/>)}</div>{!rooms.length && <p className="empty">No encontramos habitaciones con esos filtros.</p>}</main> }
-export function RoomDetailPage() { const { id } = useParams(); const room = hospitalityRepository.rooms().find(r=>r.id===id); if (!room) return <Navigate to="/rooms" replace/>; const available = room.status === "Disponible"; return <main className="detail"><img className="detail-image" src={room.image} alt={room.type}/><div className="detail-copy"><span className={available ? "badge available" : "badge"}>{room.status}</span><p className="eyebrow">HABITACIÓN {room.number} · PISO {room.floor}</p><h1>{room.type}</h1><p className="lead">{room.description}</p><div className="facts"><span>♙ Hasta {room.capacity} personas</span><span>▣ {room.garage ? "Garaje disponible" : "Sin garaje"}</span><span>⌁ WiFi incluido</span></div><h3>Incluye</h3><div className="amenity-pills">{room.amenities.map(a=><span key={a}>✓ {a}</span>)}</div><div className="price-action"><strong>Bs {room.price}<small> por noche</small></strong>{available ? <Link className="button" to={`/reservation?room=${room.id}`}>Reservar ahora →</Link> : <span className="unavailable">No disponible por el momento</span>}</div></div></main> }
-export function ServicesPage() { return <main className="page-section"><SectionTitle eyebrow="A TU MEDIDA" title="Servicios para disfrutar sin prisa" copy="Añade los servicios que necesitas al momento de hacer tu reserva."/><div className="service-cards">{hospitalityRepository.services().filter(s=>s.active).map(s=><article key={s.id}><b>{s.icon}</b><h3>{s.name}</h3><p>{s.description}</p><strong>Bs {s.price}</strong></article>)}</div></main> }
-export function ReviewsPage() { const user = authRepository.getCurrentUser(); const [rating,setRating]=useState(5); const [comment,setComment]=useState(""); const [sent,setSent]=useState(false); const submit=(e: React.FormEvent)=>{e.preventDefault(); if(!user||!comment.trim())return; hospitalityRepository.saveReviews([{id:`review-${Date.now()}`,userId:user.id,name:user.name,rating,comment,date:new Date().toLocaleDateString("es-BO",{day:"2-digit",month:"short",year:"numeric"}),visible:true},...hospitalityRepository.reviews()]); setSent(true);setComment("");}; return <main className="page-section"><SectionTitle eyebrow="OPINIONES REALES" title="Lo que dicen nuestros huéspedes"/><div className="reviews-layout"><div className="review-grid">{hospitalityRepository.reviews().filter(r=>r.visible).map(r=><article className="review-card" key={r.id}><Stars value={r.rating}/><p>“{r.comment}”</p><b>{r.name}</b><small>{r.date}</small></article>)}</div><form className="panel review-form" onSubmit={submit}><h3>Comparte tu experiencia</h3>{user ? <><label>Calificación <select value={rating} onChange={e=>setRating(+e.target.value)}>{[5,4,3,2,1].map(n=><option key={n} value={n}>{n} estrellas</option>)}</select></label><label>Tu comentario<textarea value={comment} onChange={e=>setComment(e.target.value)} required placeholder="Cuéntanos cómo fue tu estancia"/></label>{sent&&<p className="success">¡Gracias por tu reseña!</p>}<button className="button">Enviar reseña</button></> : <p><Link className="text-link" to="/login">Inicia sesión</Link> para dejar una reseña.</p>}</form></div></main> }
-export function LoginPage() { const navigate=useNavigate(); const [error,setError]=useState(""); if(authRepository.isAuthenticated()) return <Navigate to="/" replace/>; const submit=(c:LoginCredentials)=>{const user=authRepository.login(c);if(!user){setError("El CI o la contraseña son incorrectos.");return;}navigate(user.role==="ADMIN"?"/admin":"/");}; return <AuthShell title="Bienvenido de nuevo" subtitle="Ingresa para gestionar tu próxima estancia."><LoginForm onSubmit={submit} error={error}/></AuthShell> }
-function LoginForm({onSubmit,error}:{onSubmit:(c:LoginCredentials)=>void;error:string}){const[carnet,setCarnet]=useState("");const[password,setPassword]=useState("");return <form className="auth-form" onSubmit={e=>{e.preventDefault();onSubmit({carnet,password})}}><label>CI / Carnet<input value={carnet} onChange={e=>setCarnet(e.target.value)} required placeholder="Ej. 7654321"/></label><label>Contraseña<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="Tu contraseña"/></label>{error&&<p className="error">{error}</p>}<button className="button">Iniciar sesión →</button><p>¿Aún no tienes cuenta? <Link to="/register">Regístrate</Link></p><small>Demo: cliente 7654321 / usuario123 · admin 1234567 / admin123</small></form>}
-export function RegisterPage(){const navigate=useNavigate();const[error,setError]=useState("");const submit=(e:React.FormEvent<HTMLFormElement>)=>{e.preventDefault();const f=new FormData(e.currentTarget);const pass=String(f.get("password"));if(pass!==f.get("confirmation")){setError("Las contraseñas no coinciden.");return;}const credentials:RegisterCredentials={name:String(f.get("name")),paternalSurname:String(f.get("paternalSurname")),maternalSurname:String(f.get("maternalSurname")),carnet:String(f.get("carnet")),password:pass};const result=authRepository.register(credentials);if(result.error){setError(result.error);return;}navigate("/");};return <AuthShell title="Tu próxima estancia empieza aquí" subtitle="Crea tu cuenta de huésped en unos segundos."><form className="auth-form" onSubmit={submit}><div className="two-columns"><label>Nombres<input name="name" required/></label><label>CI / Carnet<input name="carnet" required/></label><label>Apellido paterno<input name="paternalSurname" required/></label><label>Apellido materno<input name="maternalSurname" required/></label></div><label>Contraseña<input name="password" type="password" required minLength={6}/></label><label>Confirmar contraseña<input name="confirmation" type="password" required minLength={6}/></label>{error&&<p className="error">{error}</p>}<button className="button">Crear cuenta →</button><p>¿Ya tienes una cuenta? <Link to="/login">Inicia sesión</Link></p></form></AuthShell>}
-function AuthShell({title,subtitle,children}:{title:string;subtitle:string;children:React.ReactNode}){return <main className="auth-page"><section><p className="eyebrow">CASA AURORA</p><h1>{title}</h1><p>{subtitle}</p><div className="auth-note">“Cada llegada merece sentirse especial.”</div></section><section className="auth-card">{children}</section></main>}
+const SectionTitle = ({
+  eyebrow,
+  title,
+  copy,
+}: {
+  eyebrow: string;
+  title: string;
+  copy?: string;
+}) => (
+  <div className="section-title">
+    <span>{eyebrow}</span>
+    <h2>{title}</h2>
+    {copy && <p>{copy}</p>}
+  </div>
+);
+
+export function HomePage() {
+  const [guests, setGuests] = useState(2);
+  const navigate = useNavigate();
+
+  const rooms = hospitalityRepository
+    .rooms()
+    .filter((room) => room.status === "Disponible");
+
+  return (
+    <>
+      <section className="hero">
+        <div className="hero-content">
+          <p className="eyebrow">HOSPEDAJE BOUTIQUE · SUCRE</p>
+
+          <h1>
+            Descansa donde
+            <br />
+            <i>todo se siente bien.</i>
+          </h1>
+
+          <p>
+            Una estancia hecha de calma, detalles cálidos y experiencias que
+            querrás repetir.
+          </p>
+
+          <div className="hero-actions">
+            <Link className="button" to="/rooms">
+              Reservar ahora
+            </Link>
+
+            <Link className="button ghost" to="/rooms">
+              Ver habitaciones
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="availability">
+        <div>
+          <label>
+            Ingreso
+            <input type="date" />
+          </label>
+
+          <label>
+            Salida
+            <input type="date" />
+          </label>
+
+          <label>
+            Huéspedes
+            <select
+              value={guests}
+              onChange={(e) => setGuests(Number(e.target.value))}
+            >
+              {[1, 2, 3, 4].map((n) => (
+                <option key={n} value={n}>
+                  {n} persona{n > 1 ? "s" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <button
+          className="button"
+          onClick={() => navigate(`/rooms?capacity=${guests}`)}
+        >
+          Buscar disponibilidad <span>→</span>
+        </button>
+      </section>
+
+      <section className="page-section">
+        <SectionTitle
+          eyebrow="ELIGE TU ESTANCIA"
+          title="Habitaciones que invitan a quedarte"
+          copy="Espacios pensados para que cada viaje se sienta como una pausa."
+        />
+
+        <div className="room-grid">
+          {rooms.slice(0, 3).map((room) => (
+            <RoomCard room={room} key={room.id} />
+          ))}
+        </div>
+
+        <div className="center">
+          <Link className="text-link large" to="/rooms">
+            Conocer todas las habitaciones →
+          </Link>
+        </div>
+      </section>
+
+      <section className="services-band">
+        <div>
+          <span className="eyebrow">CUIDAMOS CADA DETALLE</span>
+
+          <h2>
+            Más que una habitación,
+            <br />
+            una experiencia completa.
+          </h2>
+
+          <Link className="button ghost" to="/services">
+            Explorar servicios
+          </Link>
+        </div>
+
+        <div className="service-mini-grid">
+          {hospitalityRepository
+            .services()
+            .slice(0, 4)
+            .map((service) => (
+              <div key={service.id}>
+                <b>{service.icon}</b>
+                <h3>{service.name}</h3>
+                <p>{service.description}</p>
+              </div>
+            ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+export function RoomsPage() {
+  const rooms = hospitalityRepository.rooms();
+
+  return (
+    <main className="page-section">
+      <SectionTitle
+        eyebrow="NUESTRAS HABITACIONES"
+        title="Elige tu espacio"
+        copy="Habitaciones pensadas para descansar y disfrutar."
+      />
+
+      <div className="room-grid">
+        {rooms.map((room) => (
+          <RoomCard room={room} key={room.id} />
+        ))}
+      </div>
+    </main>
+  );
+}
+
+export function RoomDetailPage() {
+  const { id } = useParams();
+
+  const room = hospitalityRepository
+    .rooms()
+    .find((item) => item.id === id);
+
+  if (!room) {
+    return (
+      <main className="page-section">
+        <h2>Habitación no encontrada</h2>
+
+        <Link className="button" to="/rooms">
+          Volver a habitaciones
+        </Link>
+      </main>
+    );
+  }
+
+  return (
+    <main className="page-section">
+      <SectionTitle
+        eyebrow="TU ESTANCIA"
+        title={`Habitación ${room.number} · ${room.type}`}
+        copy={room.description}
+      />
+
+      <div className="room-grid">
+        <RoomCard room={room} />
+      </div>
+
+      <div className="center">
+        <Link className="button" to="/rooms">
+          Volver a habitaciones
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+export function ServicesPage() {
+  const services = hospitalityRepository.services();
+
+  return (
+    <main className="page-section">
+      <SectionTitle
+        eyebrow="A TU MEDIDA"
+        title="Servicios para disfrutar sin prisa"
+        copy="Añade los servicios que necesites para hacer tu estancia más especial."
+      />
+
+      <div className="service-mini-grid">
+        {services.map((service) => (
+          <div key={service.id}>
+            <b>{service.icon}</b>
+            <h3>{service.name}</h3>
+            <p>{service.description}</p>
+          </div>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+export function LoginPage() {
+  const navigate = useNavigate();
+
+  const [carnet, setCarnet] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const result = authRepository.login({
+        carnet,
+        password,
+      });
+
+      if (result) {
+        navigate("/");
+      } else {
+        setError("Carnet o contraseña incorrectos.");
+      }
+    } catch {
+      setError("No se pudo iniciar sesión.");
+    }
+  };
+
+  if (authRepository.isAuthenticated()) {
+    return <Navigate to="/" replace />;
+  }
+
+  return (
+    <main className="page-section auth-page">
+      <div className="auth-card">
+        <SectionTitle
+          eyebrow="BIENVENIDO"
+          title="Iniciar sesión"
+          copy="Accede a tu cuenta para continuar."
+        />
+
+        <form onSubmit={submit}>
+          <label>
+            Carnet
+            <input
+              value={carnet}
+              onChange={(e) => setCarnet(e.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            Contraseña
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+
+          {error && <p>{error}</p>}
+
+          <button className="button" type="submit">
+            Iniciar sesión
+          </button>
+        </form>
+
+        <p>
+          ¿No tienes cuenta? <Link to="/register">Crear cuenta</Link>
+        </p>
+      </div>
+    </main>
+  );
+}
+
+export function RegisterPage() {
+  const navigate = useNavigate();
+
+  const [name, setName] = useState("");
+  const [paternalSurname, setPaternalSurname] = useState("");
+  const [maternalSurname, setMaternalSurname] = useState("");
+  const [carnet, setCarnet] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      const result = authRepository.register({
+        name,
+        paternalSurname,
+        maternalSurname,
+        carnet,
+        password,
+      });
+
+      if (result) {
+        navigate("/login");
+      } else {
+        setError("No se pudo crear la cuenta.");
+      }
+    } catch {
+      setError("No se pudo crear la cuenta.");
+    }
+  };
+
+  return (
+    <main className="page-section auth-page">
+      <div className="auth-card">
+        <SectionTitle
+          eyebrow="NUEVA CUENTA"
+          title="Crear cuenta"
+          copy="Regístrate para gestionar tus reservas."
+        />
+
+        <form onSubmit={submit}>
+          <label>
+            Nombre
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            Apellido paterno
+            <input
+              value={paternalSurname}
+              onChange={(e) => setPaternalSurname(e.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            Apellido materno
+            <input
+              value={maternalSurname}
+              onChange={(e) => setMaternalSurname(e.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            Carnet
+            <input
+              value={carnet}
+              onChange={(e) => setCarnet(e.target.value)}
+              required
+            />
+          </label>
+
+          <label>
+            Contraseña
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </label>
+
+          {error && <p>{error}</p>}
+
+          <button className="button" type="submit">
+            Crear cuenta
+          </button>
+        </form>
+
+        <p>
+          ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
+        </p>
+      </div>
+    </main>
+  );
+}
+
+export function AuthShell({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <main className="auth-page">
+      <div className="auth-card">
+        <SectionTitle
+          eyebrow="CASA AURORA"
+          title={title}
+          copy={subtitle}
+        />
+
+        {children}
+      </div>
+    </main>
+  );
+}
